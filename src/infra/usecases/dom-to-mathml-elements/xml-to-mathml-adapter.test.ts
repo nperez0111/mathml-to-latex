@@ -1,4 +1,5 @@
 import { XmlToMathMLAdapter, ElementsToMathMLAdapter, ErrorHandler } from '.';
+import { XmldomDocumentParser } from '../../parsers/xmldom-document-parser';
 
 import {
   singleMi,
@@ -17,7 +18,7 @@ describe('#convert', () => {
     const elementsToMathMLAdapter = new ElementsToMathMLAdapter();
     const errorHandler = new ErrorHandler();
 
-    return new XmlToMathMLAdapter(elementsToMathMLAdapter, errorHandler);
+    return new XmlToMathMLAdapter(new XmldomDocumentParser(), elementsToMathMLAdapter, errorHandler);
   };
 
   describe('given math string with mi tag', () => {
