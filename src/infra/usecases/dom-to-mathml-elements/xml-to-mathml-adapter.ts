@@ -14,7 +14,6 @@ import { XmlDocumentParser, XmlParseResult } from '../../../data/protocols/xml-d
  * runs on top of `@xmldom/xmldom` or of the platform's native `DOMParser`.
  */
 export class XmlToMathMLAdapter {
-  private _xml = '';
   private readonly _documentParser: XmlDocumentParser;
   private readonly _errorHandler: ErrorHandler;
   private readonly _elementsConvertor: ElementsToMathMLAdapter;
@@ -36,10 +35,12 @@ export class XmlToMathMLAdapter {
    * @returns one {@link MathMLElement} tree per `<math>` element found.
    */
   convert(xml: string): MathMLElement[] {
-    this._xml = this._removeLineBreaks(xml);
-    this._xml = this._removeMsWordPrefixes(this._xml);
-
-    return this._elementsConvertor.convert(this._mathMLElements);
+    const cleanedXml = this._removeMsWordPrefixes(this._removeLineBreaks(xml));
+    const { document } = this._parseFixingErrors(cleanedXml);
+    const elements = document?.getElementsByTagName('math');
+    // xmldom's Element is structurally compatible with the DOM Element used
+    // downstream, but TypeScript requires the cast through `unknown`.
+    return this._elementsConvertor.convert(elements ? (Array.from(elements) as unknown as Element[]) : []);
   }
 
   private _removeLineBreaks(xml: string): string {
@@ -52,41 +53,28 @@ export class XmlToMathMLAdapter {
     return xml.replace(MS_WORD_PREFIX, '');
   }
 
-  private get _mathMLElements(): Element[] {
-    const { document } = this._parseFixingErrors();
-
-    const elements = document?.getElementsByTagName('math');
-    // xmldom exposes its own Element type, which is structurally compatible
-    // with the DOM Element used downstream but does not overlap for TS, so the
-    // cast must go through `unknown`.
-    return elements ? (Array.from(elements) as unknown as Element[]) : [];
-  }
-
-  private _parseFixingErrors(): XmlParseResult {
-    const result = this._documentParser.parse(this._xml);
+  private _parseFixingErrors(xml: string): XmlParseResult {
+    const result = this._documentParser.parse(xml);
     if (result.errors.length === 0) return result;
 
+    let recognizedError = false;
     for (const error of result.errors) {
-      this._xml = this._errorHandler.fixError(this._xml, error);
+      const repairedXml = this._errorHandler.fixError(xml, error);
+      if (repairedXml === undefined) continue;
+
+      xml = repairedXml;
+      recognizedError = true;
     }
 
-    if (!this._errorHandler.isThereAnyErrors()) return this._parseRepairingBlindly(result);
+    if (recognizedError) return this._documentParser.parse(xml);
 
-    this._errorHandler.cleanErrors();
-    return this._documentParser.parse(this._xml);
-  }
-
-  // Native parsers word their messages differently on every engine (Firefox
-  // only reports "not well-formed"), so when nothing was recognised and no
-  // document came out of the parse, the value-less attribute repair is
-  // attempted anyway. It is a no-op unless the markup actually contains one.
-  private _parseRepairingBlindly(result: XmlParseResult): XmlParseResult {
     if (result.document) return result;
 
-    const repairedXml = this._errorHandler.repairMalformedMarkup(this._xml);
-    if (repairedXml === this._xml) return result;
+    // Some native parsers report no useful error details. Only try a blind
+    // repair if parsing failed; leave successful xmldom parses alone.
+    const repairedXml = this._errorHandler.repairMalformedMarkup(xml);
+    if (repairedXml === xml) return result;
 
-    this._xml = repairedXml;
-    return this._documentParser.parse(this._xml);
+    return this._documentParser.parse(repairedXml);
   }
 }

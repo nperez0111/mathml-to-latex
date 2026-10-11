@@ -2,7 +2,7 @@ import { XmlDocumentParser, XmlParseResult } from '../../data/protocols/xml-docu
 
 /**
  * {@link XmlDocumentParser} backed by the `DOMParser` built into the platform
- * (browsers, web workers, Deno, jsdom). It keeps the browser build free of any
+ * (browser windows and jsdom). It keeps the browser build free of any
  * XML parsing dependency.
  *
  * Native parsers do not report errors through a callback: a failed parse
@@ -38,4 +38,4 @@ export class NativeDocumentParser implements XmlDocumentParser {
 
 const MISSING_DOM_PARSER_MESSAGE =
   'mathml-to-latex/browser requires a global DOMParser. ' +
-  'Use the default entry point ("mathml-to-latex") on Node.js, or provide a DOMParser polyfill.';
+  'Use mathml-to-latex/polyfill where DOMParser is unavailable.';

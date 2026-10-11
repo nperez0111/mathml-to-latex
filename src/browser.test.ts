@@ -6,20 +6,22 @@ import { MathMLToLaTeX as NodeMathMLToLaTeX } from './index';
 import * as mathmlStrings from './__fixtures__/mathmlStrings';
 
 describe('MathMLToLaTeX (browser entry point)', () => {
-  it('converts MathML using the native DOMParser', () => {
-    expect(BrowserMathMLToLaTeX.convert('<math><mi>a</mi></math>')).toBe('a');
+  it('preserves text resembling attributes during fallback recovery', () => {
+    const xml = '<math><mtext>a x=2 & b</mtext></math>';
+    expect(BrowserMathMLToLaTeX.convert(xml)).toBe(NodeMathMLToLaTeX.convert(xml));
+    expect(BrowserMathMLToLaTeX.convert(xml)).toBe('\\text{a x}=\\text{2 }\\&\\text{ b}');
   });
 
-  it('converts an empty string to an empty string', () => {
-    expect(BrowserMathMLToLaTeX.convert('')).toBe('');
+  it('preserves text when repairing a broken attribute through both parsers', () => {
+    const xml = '<math><mtext>a x=2 &amp; b</mtext><mfenced close ><mi>x</mi></mfenced></math>';
+    expect(BrowserMathMLToLaTeX.convert(xml)).toBe(NodeMathMLToLaTeX.convert(xml));
+    expect(BrowserMathMLToLaTeX.convert(xml)).toContain('\\text{a x}=\\text{2 }');
   });
 
-  it('converts a non MathML string to an empty string', () => {
-    expect(BrowserMathMLToLaTeX.convert('<p>not mathml</p>')).toBe('');
-  });
-
-  it('recovers from the value-less attributes emitted by MS Word', () => {
-    expect(BrowserMathMLToLaTeX.convert(mathmlStrings.mfencedWithBrokenAttributeCase1)).toBe('\\left\\{3\\right)');
+  it('keeps a repaired self-closing tag closed through both parsers', () => {
+    const xml = '<math><mi close=/><mi>x</mi></math>';
+    expect(BrowserMathMLToLaTeX.convert(xml)).toBe('x');
+    expect(NodeMathMLToLaTeX.convert(xml)).toBe('x');
   });
 
   it('throws a helpful error when no DOMParser is available', () => {

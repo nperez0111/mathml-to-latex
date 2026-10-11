@@ -21,30 +21,30 @@ const ts = () =>
     declarationMap: false,
   });
 
-const dualFormats = (name) => [
-  { file: `dist/${name}.mjs`, format: 'es' },
-  { file: `dist/${name}.cjs`, format: 'cjs', exports: 'named' },
-];
-
-const types = (input, file) => ({ input, plugins: [dts()], output: { file, format: 'es' } });
-
 export default [
-  // ESM + CJS for Node and bundlers — keep the dependency external.
+  // Keep separate polyfill filenames so the legacy browser field cannot
+  // redirect the explicit xmldom import to the native parser.
   {
     input: nodeInput,
     external: ['@xmldom/xmldom'],
     plugins: [ts()],
-    output: dualFormats('index'),
+    output: [
+      { file: 'dist/index.mjs', format: 'es' },
+      { file: 'dist/index.cjs', format: 'cjs', exports: 'named' },
+      { file: 'dist/polyfill.mjs', format: 'es' },
+      { file: 'dist/polyfill.cjs', format: 'cjs', exports: 'named' },
+    ],
   },
-  // ESM + CJS for browsers and browser-targeted bundlers — no dependencies.
+  // Browser-targeted default and explicit browser subpath: no dependencies.
   {
     input: browserInput,
     plugins: [ts()],
-    output: dualFormats('browser'),
+    output: [
+      { file: 'dist/browser.mjs', format: 'es' },
+      { file: 'dist/browser.cjs', format: 'cjs', exports: 'named' },
+    ],
   },
-  // Self-contained, minified UMD for the browser/CDN. Built from the browser
-  // entry point, so it no longer bundles `@xmldom/xmldom`. Exposes the same
-  // `MathMLToLaTeX` global as before.
+  // Self-contained browser/CDN bundle, built from the native parser entry.
   {
     input: browserInput,
     plugins: [resolve(), commonjs(), ts(), terser()],
@@ -56,6 +56,6 @@ export default [
     },
   },
   // Bundled type declarations.
-  types(nodeInput, 'dist/index.d.ts'),
-  types(browserInput, 'dist/browser.d.ts'),
+  { input: nodeInput, plugins: [dts()], output: { file: 'dist/index.d.ts', format: 'es' } },
+  { input: browserInput, plugins: [dts()], output: { file: 'dist/browser.d.ts', format: 'es' } },
 ];

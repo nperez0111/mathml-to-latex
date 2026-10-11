@@ -7,9 +7,8 @@ import path from 'node:path';
 // aliases mirror the `paths` of the root tsconfig, which the library source
 // relies on for its bare `data/...` and `domain/...` imports.
 //
-// It aliases the *browser* entry point, which is what a real browser consumer
-// resolves: it uses the platform `DOMParser` and never pulls `@xmldom/xmldom`
-// into the bundle.
+// The playground uses the browser entry point, matching what browser-targeted
+// bundlers resolve from the default import.
 export default defineConfig({
   plugins: [tailwindcss()],
   resolve: {

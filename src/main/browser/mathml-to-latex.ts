@@ -6,8 +6,8 @@ import { NativeDocumentParser } from '../../infra/parsers/native-document-parser
  *
  * Behaves exactly like the default `MathMLToLaTeX`, but parses with the
  * platform's built-in `DOMParser` instead of `@xmldom/xmldom`, which keeps the
- * dependency out of the bundle. It requires a global `DOMParser` (browsers, web
- * workers, Deno, jsdom).
+ * dependency out of the bundle. It requires a global `DOMParser` (available in
+ * browser windows and jsdom, but not Web Workers).
  *
  * @example
  * import { MathMLToLaTeX } from 'mathml-to-latex/browser';

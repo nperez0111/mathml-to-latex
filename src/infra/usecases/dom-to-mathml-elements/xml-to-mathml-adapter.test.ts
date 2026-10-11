@@ -21,6 +21,15 @@ describe('#convert', () => {
     return new XmlToMathMLAdapter(new XmldomDocumentParser(), elementsToMathMLAdapter, errorHandler);
   };
 
+  it('does not carry repaired markup into the next conversion', () => {
+    const adapter = makeSut();
+
+    expect(adapter.convert('<math><mfenced close= ><mi>a</mi></mfenced></math>')[0].children[0].children[0].value).toBe(
+      'a',
+    );
+    expect(adapter.convert('<math><mi>b</mi></math>')[0].children[0].value).toBe('b');
+  });
+
   describe('given math string with mi tag', () => {
     it('return array with single mathml interface of name math and child mi', () => {
       const mathmlString = singleMi;

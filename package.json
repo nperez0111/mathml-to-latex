@@ -30,6 +30,12 @@
       "require": "./dist/browser.cjs",
       "default": "./dist/browser.mjs"
     },
+    "./polyfill": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/polyfill.mjs",
+      "require": "./dist/polyfill.cjs",
+      "default": "./dist/polyfill.mjs"
+    },
     "./package.json": "./package.json",
     "./dist/*": "./dist/*"
   },

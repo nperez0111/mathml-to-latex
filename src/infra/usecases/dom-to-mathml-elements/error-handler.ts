@@ -5,26 +5,23 @@
  * markup can be re-parsed successfully.
  *
  * Messages are worded differently by every parser — `@xmldom/xmldom`, libxml2
- * (Chrome/Safari), Gecko (Firefox) — so recognition is intentionally loose and
- * falls back to a generic repair.
+ * (Chrome/Safari), Gecko (Firefox) — so recognition is intentionally loose.
+ * Callers fall back to `repairMalformedMarkup` if parsing failed and no message
+ * identified the problem.
  */
 export class ErrorHandler {
-  private _errors: string[] = [];
-
   /**
-   * If the parser error is a recoverable missing-attribute-value error, records
-   * it and returns the XML with the offending attribute stripped; otherwise
-   * returns the XML unchanged.
+   * If the parser error names a missing attribute value, strips the offending
+   * attribute. Returns undefined when the error cannot be recognised.
    *
    * @param xml - the current (possibly malformed) XML.
    * @param errorMessage - the message reported by the parser.
-   * @returns the (possibly corrected) XML.
+   * @returns the (possibly corrected) XML, or undefined for an unrelated error.
    */
-  fixError(xml: string, errorMessage: string): string {
-    if (!this._isMissingAttributeValueError(errorMessage)) return xml;
+  fixError(xml: string, errorMessage: string): string | undefined {
+    if (!this._isMissingAttributeValueError(errorMessage)) return undefined;
 
-    this._errors.push(errorMessage);
-    return this._fixMissingAttribute(errorMessage, xml);
+    return this._stripValuelessAttributes(xml, this._attributeNameFromError(errorMessage));
   }
 
   /**
@@ -41,21 +38,6 @@ export class ErrorHandler {
     return this._escapeBareAmpersands(this._stripValuelessAttributes(xml));
   }
 
-  isThereAnyErrors(): boolean {
-    return this._errors.length > 0;
-  }
-
-  cleanErrors(): void {
-    this._errors = [];
-  }
-
-  private _fixMissingAttribute(errorMessage: string, xml: string): string {
-    const missingAttribute = this._attributeNameFromError(errorMessage);
-    if (missingAttribute) return xml.replace(this._matchMissingValueForAttribute(missingAttribute), '');
-
-    return this._stripValuelessAttributes(xml);
-  }
-
   // Only some messages carry the offending attribute name: xmldom's "missed
   // value" warning and libxml2's "Specification mandates value" error. The
   // "AttValue" fatalError does not, so it falls back to the generic strip.
@@ -66,33 +48,51 @@ export class ErrorHandler {
     );
   }
 
-  private _matchMissingValueForAttribute(attribute: string): RegExp {
-    return new RegExp(`(${attribute}=(?!("|')))|(${attribute}(?!("|')))`, 'gm');
-  }
+  private _stripValuelessAttributes(xml: string, namedAttribute?: string): string {
+    // Quoted values may contain `>`; comments and CDATA must not be repaired.
+    return xml.replace(XML_MARKUP, (tag) => {
+      if (tag.startsWith('<!') || tag.startsWith('<?')) return tag;
 
-  private _stripValuelessAttributes(xml: string): string {
-    let repairedXml = xml;
+      const tagName = /^<[a-zA-Z_][\w:.-]*/.exec(tag);
+      if (!tagName) return tag;
 
-    while (MISSING_VALUE_AFTER_EQUALS().exec(repairedXml)) {
-      repairedXml = repairedXml.replace(MISSING_VALUE_AFTER_EQUALS(), '$1$3');
-    }
+      let repaired = tagName[0];
+      let offset = repaired.length;
+      while (offset < tag.length) {
+        ATTRIBUTE.lastIndex = offset;
+        const attribute = ATTRIBUTE.exec(tag);
+        if (!attribute) return repaired + tag.slice(offset);
 
-    // One pass only strips the first bare attribute of each tag, so it repeats
-    // until the markup stops changing.
-    let previousXml = '';
-    while (previousXml !== repairedXml) {
-      previousXml = repairedXml;
-      repairedXml = repairedXml.replace(BARE_ATTRIBUTE_NAME(), '$1');
-    }
+        const [original, whitespace, name, value] = attribute;
+        const hasEquals = original.includes('=');
+        const quoted = value?.startsWith('"') || value?.startsWith("'");
+        if ((namedAttribute && name !== namedAttribute) || (hasEquals && quoted)) {
+          repaired += original;
+        } else if (hasEquals) {
+          repaired += whitespace;
+        }
+        offset = ATTRIBUTE.lastIndex;
+      }
 
-    return repairedXml;
+      return repaired;
+    });
   }
 
   // `&` is a legal character in MathML text content for lenient parsers, but a
   // malformed entity reference for strict ones, so it is escaped back into the
   // character it was meant to be.
   private _escapeBareAmpersands(xml: string): string {
-    return xml.replace(BARE_AMPERSAND(), '&amp;');
+    let escaped = '';
+    let offset = 0;
+    PROTECTED_XML.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = PROTECTED_XML.exec(xml))) {
+      escaped += xml.slice(offset, match.index).replace(BARE_AMPERSAND, '&amp;');
+      escaped += match[0];
+      offset = match.index + match[0].length;
+    }
+
+    return escaped + xml.slice(offset).replace(BARE_AMPERSAND, '&amp;');
   }
 
   private _isMissingAttributeValueError(errorMessage: string): boolean {
@@ -111,13 +111,12 @@ export class ErrorHandler {
 
 const MISSING_ATT_VALUE_MESSAGE = /AttValue: ("|') or ("|') expected/;
 
-// `attr=` immediately followed by something other than a quoted value.
-const MISSING_VALUE_AFTER_EQUALS = (): RegExp => /(\<.* )(\w+=(?!"|'))(.*\>)/gm;
+const XML_MARKUP =
+  /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<[a-zA-Z_][\w:.-]*(?:"[^"]*"|'[^']*'|[^'">])*>/g;
+const PROTECTED_XML = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>/g;
 
-// A bare attribute name inside a start tag, i.e. one not followed by `=`, after
-// the tag name and any number of well-formed attributes.
-const BARE_ATTRIBUTE_NAME = (): RegExp =>
-  /(<[a-zA-Z_][\w:.-]*(?:\s+[\w:.-]+\s*=\s*("[^"]*"|'[^']*'))*)\s+[\w:.-]+(?=\s|\/?>)/g;
+// Sticky matching stays inside the start tag, away from text nodes.
+const ATTRIBUTE = /(\s+)([\w:.-]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>/]+)?)?/y;
 
 // An `&` that does not start a named, decimal or hexadecimal entity reference.
-const BARE_AMPERSAND = (): RegExp => /&(?![a-zA-Z][\w.-]*;|#\d+;|#x[0-9a-fA-F]+;)/g;
+const BARE_AMPERSAND = /&(?![a-zA-Z][\w.-]*;|#\d+;|#x[0-9a-fA-F]+;)/g;

@@ -85,25 +85,13 @@ The package ships in three formats, so it works the same in modern bundlers, Nod
 
 The right format is selected automatically through the package's `exports` map.
 
-## Node.js and browser builds
+## Browser and web workers
 
-The library needs an XML parser. Node has none built in, so the default build uses [`@xmldom/xmldom`](https://github.com/xmldom/xmldom). Browsers already ship a `DOMParser`, so there is a second build that uses the platform one and pulls in **no dependencies at all**.
-
-Both builds expose the exact same API — `MathMLToLaTeX.convert(mathml)` — and produce identical output.
-
-You normally don't have to do anything: bundlers that target the browser (webpack, Vite, Rollup, esbuild, Parcel…) resolve the `browser` condition of the `exports` map and pick the dependency-free build automatically.
-
-If you want to be explicit, or your tool doesn't support export conditions, import the subpath directly:
+Browsers use their built-in `DOMParser` by default. Where it isn't available, such as in Web Workers, use:
 
 ```javascript
-import { MathMLToLaTeX } from 'mathml-to-latex/browser';
+import { MathMLToLaTeX } from 'mathml-to-latex/polyfill';
 ```
-
-Notes:
-
-- The browser build requires a global `DOMParser`. It is resolved lazily, so importing the module during server-side rendering is safe — only calling `convert` without a `DOMParser` throws.
-- On runtimes that resolve the `browser` condition but have no `DOMParser` (React Native / Metro, for instance), import `mathml-to-latex` through a Node-flavoured condition, or add a `DOMParser` polyfill.
-- The UMD/CDN bundle (`dist/bundle.min.js`) is built from the browser entry point, so it carries no dependency either.
 
 ## Browser
 
