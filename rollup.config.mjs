@@ -33,10 +33,7 @@ export default [
   {
     input: browserInput,
     plugins: [ts()],
-    output: [
-      { file: 'dist/browser.mjs', format: 'es' },
-      { file: 'dist/browser.cjs', format: 'cjs', exports: 'named' },
-    ],
+    output: { file: 'dist/browser.mjs', format: 'es' },
   },
   // Self-contained, minified UMD for the browser/CDN — bundles the dependency
   // and exposes the same `MathMLToLaTeX` global as before.

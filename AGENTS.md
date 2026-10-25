@@ -36,7 +36,7 @@ Everything else is internal. Do not widen the public API without a deliberate re
 - **Test:** `npm test` (Jest + ts-jest; runs against `src`, no build needed)
 - **Test (watch / verbose):** `npm run test:watch`, `npm run test:verbose`
 - **Build:** `npm run build` (Rollup → `dist/index.{mjs,cjs,d.ts}` for Node,
-  `dist/browser.{mjs,cjs,d.ts}` for browsers,
+  `dist/browser.{mjs,d.ts}` for browsers,
   and the self-contained xmldom UMD `dist/bundle.min.js`)
 - **Lint:** `npm run lint` (eslint + prettier, autofix)
 - **CI:** `.github/workflows/test.yml` runs the Dockerized test suite

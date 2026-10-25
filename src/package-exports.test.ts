@@ -11,11 +11,10 @@ describe('package entry points', () => {
     });
   });
 
-  it('exposes the native parser only through the explicit browser entry', () => {
+  it('exposes the native parser as ESM through the explicit browser entry', () => {
     expect(manifest.exports['./browser']).toEqual({
       types: './dist/browser.d.ts',
       import: './dist/browser.mjs',
-      require: './dist/browser.cjs',
       default: './dist/browser.mjs',
     });
     expect(manifest.exports).not.toHaveProperty('./polyfill');
