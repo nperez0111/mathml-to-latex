@@ -4,9 +4,7 @@ import { XmldomDocumentParser } from '../infra/parsers/xmldom-document-parser';
 /**
  * Public entry point of the library: converts a MathML string into LaTeX.
  *
- * Parses with `@xmldom/xmldom`, so it works anywhere, with or without a DOM.
- * Browser-targeted imports use the native parser by default; the explicit
- * `mathml-to-latex/polyfill` entry retains this xmldom-backed implementation.
+ * Uses xmldom in every environment. Opt in to native DOMParser with `/browser`.
  *
  * @example
  * MathMLToLaTeX.convert('<math><mrow><mn>a</mn><mo>+</mo><mn>b</mn></mrow></math>');

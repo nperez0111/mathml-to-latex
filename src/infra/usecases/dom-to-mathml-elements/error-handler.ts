@@ -3,49 +3,26 @@
  * exports (e.g. `<mfenced open='{' close= >`). It inspects the parser error
  * message and rewrites the offending value-less attribute out of the XML so the
  * markup can be re-parsed successfully.
- *
- * Messages are worded differently by every parser — `@xmldom/xmldom`, libxml2
- * (Chrome/Safari), Gecko (Firefox) — so recognition is intentionally loose.
- * Callers fall back to `repairMalformedMarkup` if parsing failed and no message
- * identified the problem.
  */
 export class ErrorHandler {
   /**
-   * If the parser error names a missing attribute value, strips the offending
-   * attribute. Returns undefined when the error cannot be recognised.
+   * If a warning describes a missing attribute value, strips the offending
+   * attribute; otherwise returns undefined.
    *
    * @param xml - the current (possibly malformed) XML.
    * @param errorMessage - the message reported by the parser.
    * @returns the (possibly corrected) XML, or undefined for an unrelated error.
    */
   fixError(xml: string, errorMessage: string): string | undefined {
-    if (!this._isMissingAttributeValueError(errorMessage)) return undefined;
+    if (!errorMessage.includes('attribute') || !errorMessage.includes('missed')) return undefined;
 
-    return this._stripValuelessAttributes(xml, this._attributeNameFromError(errorMessage));
+    const attribute = errorMessage.match(/attribute "([^"]+)" missed value/)?.[1];
+    return this._stripValuelessAttributes(xml, attribute);
   }
 
-  /**
-   * Applies every known repair without relying on the parser message, for
-   * engines whose errors do not describe the problem (Firefox only reports
-   * "not well-formed") and for parsers that reject markup `@xmldom/xmldom`
-   * tolerates. Returns the XML unchanged when there is nothing to repair, so
-   * callers can tell whether re-parsing is worthwhile.
-   *
-   * @param xml - the current (possibly malformed) XML.
-   * @returns the (possibly corrected) XML.
-   */
+  /** Failed parses get one complete repair, independent of parser diagnostics. */
   repairMalformedMarkup(xml: string): string {
     return this._escapeBareAmpersands(this._stripValuelessAttributes(xml));
-  }
-
-  // Only some messages carry the offending attribute name: xmldom's "missed
-  // value" warning and libxml2's "Specification mandates value" error. The
-  // "AttValue" fatalError does not, so it falls back to the generic strip.
-  private _attributeNameFromError(errorMessage: string): string | undefined {
-    return (
-      errorMessage.match(/attribute "([^"]+)" missed value/)?.[1] ??
-      errorMessage.match(/Specification mandates value for attribute ([^\s"'<>]+)/)?.[1]
-    );
   }
 
   private _stripValuelessAttributes(xml: string, namedAttribute?: string): string {
@@ -78,9 +55,7 @@ export class ErrorHandler {
     });
   }
 
-  // `&` is a legal character in MathML text content for lenient parsers, but a
-  // malformed entity reference for strict ones, so it is escaped back into the
-  // character it was meant to be.
+  // Native parsers reject bare ampersands that xmldom tolerates.
   private _escapeBareAmpersands(xml: string): string {
     let escaped = '';
     let offset = 0;
@@ -94,22 +69,7 @@ export class ErrorHandler {
 
     return escaped + xml.slice(offset).replace(BARE_AMPERSAND, '&amp;');
   }
-
-  private _isMissingAttributeValueError(errorMessage: string): boolean {
-    return (
-      (errorMessage.includes('attribute') && errorMessage.includes('missed')) ||
-      errorMessage.includes('attribute value missed') ||
-      // libxml2 (Chrome, Safari) on an attribute written without `=`.
-      errorMessage.includes('Specification mandates value for attribute') ||
-      // A value-less attribute written as `attr=` is reported as this
-      // fatalError by both xmldom and libxml2, which order the quotes
-      // differently in the message.
-      MISSING_ATT_VALUE_MESSAGE.test(errorMessage)
-    );
-  }
 }
-
-const MISSING_ATT_VALUE_MESSAGE = /AttValue: ("|') or ("|') expected/;
 
 const XML_MARKUP =
   /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<[a-zA-Z_][\w:.-]*(?:"[^"]*"|'[^']*'|[^'">])*>/g;

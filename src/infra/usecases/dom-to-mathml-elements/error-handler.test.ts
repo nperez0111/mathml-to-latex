@@ -15,27 +15,6 @@ describe('ErrorHandler', () => {
     expect(fixed).not.toContain('close');
   });
 
-  it('recovers from the AttValue fatalError of an `attr=` with no value', () => {
-    const handler = new ErrorHandler();
-    const fixed = handler.fixError("<mfenced open='{' close= ></mfenced>", 'AttValue: \' or " expected');
-    expect(fixed).not.toContain('close=');
-  });
-
-  it('strips the attribute named by the libxml2 error of an attribute with no `=`', () => {
-    const handler = new ErrorHandler();
-    const fixed = handler.fixError(
-      "<mfenced open='{' close ></mfenced>",
-      'Specification mandates value for attribute close',
-    );
-    expect(fixed).not.toContain('close');
-  });
-
-  it('recovers from the AttValue fatalError however the parser orders the quotes', () => {
-    const handler = new ErrorHandler();
-    const fixed = handler.fixError("<mfenced open='{' close= ></mfenced>", 'AttValue: " or \' expected');
-    expect(fixed).not.toContain('close=');
-  });
-
   it('does not remove text resembling an attribute while fixing a named attribute', () => {
     const xml = '<math><mtext>close=2 &amp; x=3</mtext><mfenced close ></mfenced></math>';
     expect(new ErrorHandler().fixError(xml, 'attribute "close" missed value')).toBe(
@@ -44,6 +23,12 @@ describe('ErrorHandler', () => {
   });
 
   describe('repairMalformedMarkup', () => {
+    it('strips an attribute with an equals sign but no value', () => {
+      expect(new ErrorHandler().repairMalformedMarkup("<mfenced open='{' close= ></mfenced>")).toBe(
+        "<mfenced open='{' ></mfenced>",
+      );
+    });
+
     it('strips value-less attributes without a parser message', () => {
       const repaired = new ErrorHandler().repairMalformedMarkup("<mfenced open='{' close ></mfenced>");
       expect(repaired).toBe("<mfenced open='{' ></mfenced>");

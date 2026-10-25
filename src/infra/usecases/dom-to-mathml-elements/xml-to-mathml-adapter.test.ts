@@ -30,6 +30,45 @@ describe('#convert', () => {
     expect(adapter.convert('<math><mi>b</mi></math>')[0].children[0].value).toBe('b');
   });
 
+  it('repairs attributes and ampersands together despite a recognized native diagnostic', () => {
+    const xml = '<math><mfenced close ><mi>x</mi></mfenced><mtext>a x=2 & b</mtext></math>';
+    const parser = new XmldomDocumentParser();
+    const parse = jest
+      .fn((xml: string) => parser.parse(xml))
+      .mockReturnValueOnce({ errors: ['Specification mandates value for attribute close'] });
+    const adapter = new XmlToMathMLAdapter({ parse }, new ElementsToMathMLAdapter(), new ErrorHandler());
+
+    expect(adapter.convert(xml)[0].children[1].value).toBe('a x=2 & b');
+    expect(parse).toHaveBeenCalledTimes(2);
+    expect(parse).toHaveBeenLastCalledWith('<math><mfenced ><mi>x</mi></mfenced><mtext>a x=2 &amp; b</mtext></math>');
+  });
+
+  it('does not retry again when repaired markup still fails', () => {
+    const parse = jest.fn().mockReturnValue({ errors: ['not well-formed'] });
+    const adapter = new XmlToMathMLAdapter({ parse }, new ElementsToMathMLAdapter(), new ErrorHandler());
+
+    expect(adapter.convert('<math><mi close >&</math>')).toEqual([]);
+    expect(parse).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not reparse failed markup when no repair changes it', () => {
+    const parse = jest.fn().mockReturnValue({ errors: ['not well-formed'] });
+    const adapter = new XmlToMathMLAdapter({ parse }, new ElementsToMathMLAdapter(), new ErrorHandler());
+
+    expect(adapter.convert('<math><mi>x</math>')).toEqual([]);
+    expect(parse).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps usable xmldom documents without applying generic repairs', () => {
+    const xml = '<math><mtext>a x=2 & b</mtext></math>';
+    const errorHandler = new ErrorHandler();
+    const repair = jest.spyOn(errorHandler, 'repairMalformedMarkup');
+    const adapter = new XmlToMathMLAdapter(new XmldomDocumentParser(), new ElementsToMathMLAdapter(), errorHandler);
+
+    expect(adapter.convert(xml)[0].children[0].value).toBe('a x=2 & b');
+    expect(repair).not.toHaveBeenCalled();
+  });
+
   describe('given math string with mi tag', () => {
     it('return array with single mathml interface of name math and child mi', () => {
       const mathmlString = singleMi;

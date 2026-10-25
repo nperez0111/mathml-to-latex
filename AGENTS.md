@@ -18,19 +18,14 @@ MathMLToLaTeX.convert('<math><mrow><mn>a</mn><mo>+</mo><mn>b</mn></mrow></math>'
 // => 'a + b'
 ```
 
-The package exposes the same API through:
+Both entries export **only** `MathMLToLaTeX`:
 
-- `src/index.ts` — Node.js; parses with `@xmldom/xmldom`.
-- `src/browser.ts` — browsers; parses with the platform `DOMParser` and pulls in
-  no dependencies. Selected automatically via the `browser` condition or
-  explicitly through `mathml-to-latex/browser`.
-- `mathml-to-latex/polyfill` — explicit xmldom-backed import for browser-targeted
-  bundlers running without `DOMParser`, such as Web Workers. It uses the Node
-  implementation under distinct filenames to avoid browser-field remapping.
+- `src/index.ts` uses xmldom in every environment, including Web Workers and
+  React Native. The existing UMD/CDN bundle also keeps xmldom.
+- `src/browser.ts` is the dependency-free, native `DOMParser` build. Opt in
+  through `mathml-to-latex/browser`; conversion requires a global `DOMParser`.
 
-All export **only** `MathMLToLaTeX`, and all must produce identical output.
-Everything else is internal — do not widen the public surface without a
-deliberate reason.
+Everything else is internal. Do not widen the public API without a deliberate reason.
 
 ## Toolchain & commands
 
@@ -42,8 +37,7 @@ deliberate reason.
 - **Test (watch / verbose):** `npm run test:watch`, `npm run test:verbose`
 - **Build:** `npm run build` (Rollup → `dist/index.{mjs,cjs,d.ts}` for Node,
   `dist/browser.{mjs,cjs,d.ts}` for browsers,
-  `dist/polyfill.{mjs,cjs}` for the explicit parser-backed entry,
-  and the UMD `dist/bundle.min.js` from the browser entry point)
+  and the self-contained xmldom UMD `dist/bundle.min.js`)
 - **Lint:** `npm run lint` (eslint + prettier, autofix)
 - **CI:** `.github/workflows/test.yml` runs the Dockerized test suite
   (`make test-build && make test`) on every PR. Publishing
@@ -75,9 +69,8 @@ src/
     helpers/                   Wrappers, separators, whitespace, the memo helper
     errors/                    Domain errors (InvalidNumberOfChildrenError)
   infra/
-    parsers/                   XmlDocumentParser implementations (the only
-                               environment-specific code in the repo)
-      xmldom-document-parser.ts   The one and only file importing @xmldom/xmldom
+    parsers/                   XmlDocumentParser implementations
+      xmldom-document-parser.ts   The only file importing @xmldom/xmldom
       native-document-parser.ts   Platform DOMParser, reads <parsererror>
     usecases/dom-to-mathml-elements/   DOM → MathMLElement, parser-agnostic
   syntax/                      Static lookup tables: unicode/glyph → LaTeX command
@@ -119,13 +112,10 @@ DOM nodes, only this internal tree.
   top-down property, `tree-to-latex` sets the `innerTable` flag in a separate
   iterative top-down pass before evaluation. Don't move it back into a converter
   constructor.
-- **Parser boundary.** `XmlDocumentParser.parse(xml)` returns
-  `{ document?, errors }` without throwing. The xmldom parser collects errors;
-  the native parser reads `<parsererror>`. The rest of the pipeline is shared.
-- **Malformed-markup recovery.** `ErrorHandler` removes value-less attributes
-  from start tags and can escape bare `&`. Error messages differ across parsers,
-  so if no error is recognised and parsing produced no document, try one blind
-  repair. Never repair after a successful parse; that preserves Node behavior.
+- **Parsing and recovery.** Parsers return `{ document?, errors }` for malformed
+  XML. A usable xmldom document retains warning-driven attribute repair. Without
+  a usable document, apply attribute and bare-ampersand repairs together,
+  independent of error wording. Reparse changed markup once, never in a loop.
 
 ## Adding a new MathML element converter
 
@@ -146,10 +136,8 @@ DOM nodes, only this internal tree.
 - `src/index.test.ts` is the main integration suite (MathML string → LaTeX).
 - `src/robustness.test.ts` covers parser hardening (deep nesting, injection
   non-leakage).
-- `src/browser.test.ts` checks browser/Node parity across fixtures in
-  `src/__fixtures__/mathmlStrings.ts`. Add new cases there.
-- DOM specs opt in with `/** @jest-environment jsdom */`. jsdom exercises the
-  fallback repair path, not Chrome/Safari's libxml2 error messages.
+- `src/browser.test.ts` checks fixture parity. DOM specs use
+  `/** @jest-environment jsdom */`; injected diagnostics cover native error wording.
 - Tests import from `src` directly — no build step required to run them.
 
 ## Conventions

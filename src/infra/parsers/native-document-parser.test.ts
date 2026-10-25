@@ -19,7 +19,7 @@ describe('NativeDocumentParser', () => {
     expect(errors[0]).not.toHaveLength(0);
   });
 
-  it('resolves the DOMParser lazily, so importing it outside a browser is safe', () => {
+  it('does not require DOMParser until parsing is attempted', () => {
     const { DOMParser } = globalThis;
     delete (globalThis as { DOMParser?: typeof DOMParser }).DOMParser;
 

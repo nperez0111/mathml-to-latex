@@ -1,13 +1,7 @@
 import { DOMParser } from '@xmldom/xmldom';
 import { XmlDocumentParser, XmlParseResult } from '../../data/protocols/xml-document-parser';
 
-/**
- * {@link XmlDocumentParser} backed by `@xmldom/xmldom`, used by the Node build.
- *
- * This is the only module in the library that imports `@xmldom/xmldom`; the
- * browser build wires {@link NativeDocumentParser} instead and therefore never
- * pulls the dependency into the bundle.
- */
+/** Isolates the xmldom dependency from the shared pipeline and browser entry. */
 export class XmldomDocumentParser implements XmlDocumentParser {
   parse(xml: string): XmlParseResult {
     const errors: string[] = [];

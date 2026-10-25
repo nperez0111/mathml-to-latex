@@ -9,9 +9,8 @@ import { XmlDocumentParser, XmlParseResult } from '../../../data/protocols/xml-d
  *
  * It cleans up MS Word artefacts (line breaks, `mml:` prefixes), tolerates
  * malformed attributes through {@link ErrorHandler}, and delegates the DOM →
- * {@link MathMLElement} mapping to {@link ElementsToMathMLAdapter}. The actual
- * XML parsing is delegated to an {@link XmlDocumentParser}, so the same logic
- * runs on top of `@xmldom/xmldom` or of the platform's native `DOMParser`.
+ * {@link MathMLElement} mapping to {@link ElementsToMathMLAdapter}.
+ * XML parsing is supplied by an injected {@link XmlDocumentParser}.
  */
 export class XmlToMathMLAdapter {
   private readonly _documentParser: XmlDocumentParser;
@@ -38,9 +37,7 @@ export class XmlToMathMLAdapter {
     const cleanedXml = this._removeMsWordPrefixes(this._removeLineBreaks(xml));
     const { document } = this._parseFixingErrors(cleanedXml);
     const elements = document?.getElementsByTagName('math');
-    // xmldom's Element is structurally compatible with the DOM Element used
-    // downstream, but TypeScript requires the cast through `unknown`.
-    return this._elementsConvertor.convert(elements ? (Array.from(elements) as unknown as Element[]) : []);
+    return this._elementsConvertor.convert(elements ? Array.from(elements) : []);
   }
 
   private _removeLineBreaks(xml: string): string {
@@ -57,22 +54,17 @@ export class XmlToMathMLAdapter {
     const result = this._documentParser.parse(xml);
     if (result.errors.length === 0) return result;
 
-    let recognizedError = false;
-    for (const error of result.errors) {
-      const repairedXml = this._errorHandler.fixError(xml, error);
-      if (repairedXml === undefined) continue;
-
-      xml = repairedXml;
-      recognizedError = true;
+    let repairedXml = xml;
+    if (!result.document) {
+      // Failed documents need all repairs, regardless of native error wording.
+      repairedXml = this._errorHandler.repairMalformedMarkup(xml);
+    } else {
+      // Keep xmldom's usable documents unless a warning requires attribute repair.
+      for (const error of result.errors) {
+        repairedXml = this._errorHandler.fixError(repairedXml, error) ?? repairedXml;
+      }
     }
 
-    if (recognizedError) return this._documentParser.parse(xml);
-
-    if (result.document) return result;
-
-    // Some native parsers report no useful error details. Only try a blind
-    // repair if parsing failed; leave successful xmldom parses alone.
-    const repairedXml = this._errorHandler.repairMalformedMarkup(xml);
     if (repairedXml === xml) return result;
 
     return this._documentParser.parse(repairedXml);

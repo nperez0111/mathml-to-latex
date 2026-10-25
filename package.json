@@ -7,18 +7,8 @@
   "types": "dist/index.d.ts",
   "unpkg": "dist/bundle.min.js",
   "jsdelivr": "dist/bundle.min.js",
-  "browser": {
-    "./dist/index.cjs": "./dist/browser.cjs",
-    "./dist/index.mjs": "./dist/browser.mjs"
-  },
   "exports": {
     ".": {
-      "browser": {
-        "types": "./dist/browser.d.ts",
-        "import": "./dist/browser.mjs",
-        "require": "./dist/browser.cjs",
-        "default": "./dist/browser.mjs"
-      },
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs",
@@ -29,12 +19,6 @@
       "import": "./dist/browser.mjs",
       "require": "./dist/browser.cjs",
       "default": "./dist/browser.mjs"
-    },
-    "./polyfill": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/polyfill.mjs",
-      "require": "./dist/polyfill.cjs",
-      "default": "./dist/polyfill.mjs"
     },
     "./package.json": "./package.json",
     "./dist/*": "./dist/*"

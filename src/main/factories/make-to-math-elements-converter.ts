@@ -5,8 +5,7 @@ import { XmlDocumentParser } from '../../data/protocols/xml-document-parser';
  * Wires up and returns the parser that turns a MathML string into element
  * trees, with its element mapper and error handler.
  *
- * @param documentParser - the XML parser to run on, which is what differs
- * between the Node and the browser entry points.
+ * @param documentParser - the parser selected by the public entry.
  * @returns a ready-to-use {@link XmlToMathMLAdapter}.
  */
 export const makeToMathElementsConverter = (documentParser: XmlDocumentParser): XmlToMathMLAdapter => {

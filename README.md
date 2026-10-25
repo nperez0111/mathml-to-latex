@@ -85,15 +85,17 @@ The package ships in three formats, so it works the same in modern bundlers, Nod
 
 The right format is selected automatically through the package's `exports` map.
 
-## Browser and web workers
+## Browser
 
-Browsers use their built-in `DOMParser` by default. Where it isn't available, such as in Web Workers, use:
+The default `mathml-to-latex` import uses xmldom in every environment, including Web Workers and React Native. No global `DOMParser` is needed. The CDN bundle below also keeps xmldom.
+
+To exclude xmldom from a browser bundle, explicitly import the native-parser build:
 
 ```javascript
-import { MathMLToLaTeX } from 'mathml-to-latex/polyfill';
+import { MathMLToLaTeX } from 'mathml-to-latex/browser';
 ```
 
-## Browser
+Both entries expose `MathMLToLaTeX.convert` and include TypeScript declarations. The `/browser` entry requires a global `DOMParser`; conversion throws if it is unavailable. Use the default import in that case.
 
 Package is also available directly in the browser through CDN:
 

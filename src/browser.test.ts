@@ -29,7 +29,10 @@ describe('MathMLToLaTeX (browser entry point)', () => {
     delete (globalThis as { DOMParser?: typeof DOMParser }).DOMParser;
 
     try {
-      expect(() => BrowserMathMLToLaTeX.convert('<math><mi>a</mi></math>')).toThrow(/requires a global DOMParser/);
+      expect(() => BrowserMathMLToLaTeX.convert('<math><mi>a</mi></math>')).toThrow(
+        'mathml-to-latex/browser requires a global DOMParser. Use mathml-to-latex where DOMParser is unavailable.',
+      );
+      expect(NodeMathMLToLaTeX.convert('<math><mi>a</mi></math>')).toBe('a');
     } finally {
       globalThis.DOMParser = DOMParser;
     }
