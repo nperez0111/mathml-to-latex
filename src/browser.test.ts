@@ -24,6 +24,31 @@ describe('MathMLToLaTeX (browser entry point)', () => {
     expect(NodeMathMLToLaTeX.convert(xml)).toBe('x');
   });
 
+  it.each(['data-é', 'é', '名', 'a·b', '𐀀'])('recovers without corrupting the Unicode attribute %s', (name) => {
+    const xml = `<math><mfenced ${name}="a" close= ><mi>x</mi></mfenced></math>`;
+    expect(NodeMathMLToLaTeX.convert(xml)).toBe('\\left(x\\right)');
+    expect(BrowserMathMLToLaTeX.convert(xml)).toBe('\\left(x\\right)');
+  });
+
+  it('does not mistake annotation content for a parser diagnostic', () => {
+    const xml =
+      '<math><semantics><mi>x</mi><annotation-xml><parsererror>hello</parsererror></annotation-xml></semantics></math>';
+    expect(NodeMathMLToLaTeX.convert(xml)).toBe('x');
+    expect(BrowserMathMLToLaTeX.convert(xml)).toBe('x');
+  });
+
+  it.each(['é', 'a:b', '名', 'a·b', '𐀀'])('preserves a declared entity %s when repairing another error', (name) => {
+    const xml = `<!DOCTYPE math [<!ENTITY ${name} "hello">]><math><mtext>&${name};</mtext><mi close= >x</mi></math>`;
+    expect(BrowserMathMLToLaTeX.convert(xml.replace(' close= ', ''))).toBe('\\text{hello} x');
+    expect(BrowserMathMLToLaTeX.convert(xml)).toBe('\\text{hello} x');
+  });
+
+  it('rejects repeated incomplete tags without recursive conversion or regex rescanning', () => {
+    const xml = '<math>' + '<a '.repeat(32000);
+    expect(NodeMathMLToLaTeX.convert(xml)).toBe('');
+    expect(BrowserMathMLToLaTeX.convert(xml)).toBe('');
+  });
+
   it('throws a helpful error when no DOMParser is available', () => {
     const { DOMParser } = globalThis;
     delete (globalThis as { DOMParser?: typeof DOMParser }).DOMParser;
